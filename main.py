@@ -2,7 +2,29 @@
 import os
 import subprocess
 import xml.etree.ElementTree as ElementTree
+import json
 
+def read_dataset(filename):
+    offers = []
+    data = json.load(open(filename, encoding='utf8'))
+    return data 
+    
+def show_facts(facts):
+    for fact in facts:
+        print("{0} {1} {2}".format(fact['fact'], fact['unit'], fact['value']))
+    
+def save_facts(offers, filename):
+    with open(filename, 'w', encoding='utf8') as file:
+        for offer in offers:
+            file.write("Product - {0} ".format(offer['product']))
+            file.write("Company - {0} ".format(offer['company']))
+            file.write('\n')
+            file.write('Факты: \n')
+            
+            for fact in offer['facts']:
+                file.write("{0} {1} {2} \n".format(fact['fact'], fact['unit'], fact['value']))
+            
+            file.write('------------------------------------\n')
 
 class TomitaParser(object):
     def __init__(self, executable, config, debug=True, validate=True):
@@ -57,7 +79,7 @@ class TomitaParser(object):
         out, err = pipe.communicate(input=text.encode("utf-8"))
 
         self.debug(err)
-
+        
         facts = []
         leads = []
         etree_root = ElementTree.fromstring(out)
@@ -65,12 +87,21 @@ class TomitaParser(object):
             if with_facts:
                 self.debug("Parsing facts...")
                 for fact in etree_root.find("document").find("facts"):
+                    # unit and val is optional fields. So we need check that they are exist
+                    unit = fact.find("Unit")
+                    unit = unit.attrib.get("val") if unit is not None else ''
+                    
+                    val = fact.find("Value")
+                    val = val.attrib.get("val") if val is not None else ''
+                
                     facts.append({
                         "fact_id": fact.attrib.get("FactID"),
                         "lead_id": fact.attrib.get("LeadID"),
                         "pos": fact.attrib.get("pos"),
                         "len": fact.attrib.get("len"),
-                        "fact": fact.find("Name").attrib.get("val")
+                        "fact": fact.find("Name").attrib.get("val"),
+                        "unit": unit,
+                        "value": val,
                     })
 
             if with_leads:
@@ -86,26 +117,31 @@ class TomitaParser(object):
     def debug(self, text):
         if self.debug_mode:
             print(text)
-
-
+            
 if __name__ == "__main__":
-    tomita = TomitaParser('C:\\Temp\\tomita\\tomitaparser.exe', 'C:\\Temp\\poor-python-yandex-tomita-parser-master\\example\\config.proto', debug=True)
-    facts, leads = tomita.run(u"""
-        4 апреля в клубе «РОК-СИТИ» группа Louna даст большой сольный концерт, приуроченный к выходу своего нового альбома «Мы — это Louna!»,
-        над которым музыканты сейчас работают в студии.
-        На сегодняшний день LOUNA – одна из самых актуальных и востребованных групп на российской рок-сцене. 
-        В этом году музыканты успели выпустить концертный DVD и живой альбом «Проснись и пой», с размахом провести его презентацию в клубе «ARENA Moscow», 
-        съездить в масштабный тур по России и СНГ и выступить на двадцати летних фестивалях. Кроме того, одновременно с насыщенной деятельностью в России, 
-        коллектив издал в США свой англоязычный альбом "Behind A Mask", который получил множество восторженных рецензий авторитетных западных изданий.
-        А еще есть замечательный ансамбль КиШ
-    """)
-
-    print('Facts:\n')
-    for fact in facts:
-        print(fact)
-        print('-----\n')
+    dataset = read_dataset('dataset.json')
     
-    print('Leads:\n')
-    for lead in leads:
-        print(lead)
-        print('-----\n')
+    offers = []
+    facts = []
+    leads = []
+    
+    for item in dataset:
+        print('Handle: {0}'.format(item['name']))
+        print('Company: {0}'.format(item['company']))
+        print(' ')
+        
+        tomita = TomitaParser('C:\\Temp\\tomita\\tomitaparser.exe', 'C:\\Temp\\poor-python-yandex-tomita-parser-master\\kusbass\\config.proto', debug=False)
+        facts, leads = tomita.run(item['desc'])
+        show_facts(facts)
+        
+        offers.append({
+            "product": item['name'],
+            "company": item['company'],
+            "facts": facts
+        })
+        
+        print('-----------------')
+        print('\n\n')
+    
+    save_facts(offers, 'output.txt')
+    
