@@ -125,13 +125,18 @@ if __name__ == "__main__":
     facts = []
     leads = []
     
+    #dataset = dataset[:1]
+    
     for item in dataset:
         print('Handle: {0}'.format(item['name']))
         print('Company: {0}'.format(item['company']))
         print(' ')
         
-        tomita = TomitaParser('C:\\Temp\\tomita\\tomitaparser.exe', 'C:\\Temp\\poor-python-yandex-tomita-parser-master\\kusbass\\config.proto', debug=False)
-        facts, leads = tomita.run(item['desc'])
+        #text = item['desc'].replace(';','')
+        text = item['desc']
+        
+        tomita = TomitaParser('C:\\Temp\\tomita\\tomitaparser.exe', 'C:\\Temp\\poor-python-yandex-tomita-parser-master\\kusbass\\config.proto', debug=True)
+        facts, leads = tomita.run(text)
         show_facts(facts)
         
         offers.append({
